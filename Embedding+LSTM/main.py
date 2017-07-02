@@ -25,9 +25,9 @@ if __name__ == '__main__':
     FLAG = 0
     maxlen = 100
     min_count = 5
-    pos = pd.read_excel('pos.xls', header=None)
+    pos = pd.read_excel('../../pos.xls', header=None)
     pos['label'] = 1
-    neg = pd.read_excel('neg.xls', header=None)
+    neg = pd.read_excel('../../neg.xls', header=None)
     neg['label'] = 0
     all_ = pos.append(neg, ignore_index=True)
     all_['words'] = all_[0].apply(lambda s: list(jieba.cut(s)))
@@ -63,8 +63,11 @@ if __name__ == '__main__':
         model.add(Embedding(len(abc), 256, input_length=maxlen))
         model.add(LSTM(128)) 
         model.add(Dropout(0.5))
-        model.add(Dense(1))
-        model.add(Activation('sigmoid'))
+        model.add( Dense(1,activation='sigmoid') )
+        
+        # Print model
+        model.summary()
+        
         model.compile(loss='binary_crossentropy',
                       optimizer='adam',
                       metrics=['accuracy'])
@@ -82,5 +85,5 @@ if __name__ == '__main__':
     if FLAG == 1:
         model_name = 'model.h5'
         model = load_model(model_name)
-        s = '喝了还想喝的牛奶'
+        s = '很好'
         print predict(model,s)
