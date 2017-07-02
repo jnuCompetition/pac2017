@@ -8,6 +8,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, Embedding
 from keras.layers import LSTM
 from keras.models import load_model
+from keras.utils import np_utils
 
 def doc2num(s, maxlen): 
     s = [i for i in s if i in word_set]
@@ -26,9 +27,10 @@ if __name__ == '__main__':
     maxlen = 100
     min_count = 5
     pos = pd.read_excel('../../pos.xls', header=None)
-    pos['label'] = 1
+    pos['label'] = 0
+    pos['label'][:5000] = 1
     neg = pd.read_excel('../../neg.xls', header=None)
-    neg['label'] = 0
+    neg['label'] = 2
     all_ = pos.append(neg, ignore_index=True)
     all_['words'] = all_[0].apply(lambda s: list(jieba.cut(s)))
 
@@ -56,26 +58,26 @@ if __name__ == '__main__':
         x = np.array(list(all_['doc2num']))
         y = np.array(list(all_['label']))
         y = y.reshape((-1,1)) 
-
+        y = np_utils.to_categorical(y)
 
 
         model = Sequential()
         model.add(Embedding(len(abc), 256, input_length=maxlen))
         model.add(LSTM(128)) 
         model.add(Dropout(0.5))
-        model.add( Dense(1,activation='sigmoid') )
+        model.add( Dense(3,activation='softmax') )
         
         # Print model
         model.summary()
         
-        model.compile(loss='binary_crossentropy',
+        model.compile(loss='categorical_crossentropy',
                       optimizer='adam',
                       metrics=['accuracy'])
 
         batch_size = 128
         train_num = 15000
 
-        model.fit(x[:train_num], y[:train_num], batch_size = batch_size, epochs=30)
+        model.fit(x[:train_num], y[:train_num], batch_size = batch_size, epochs=2)
 
         model.evaluate(x[train_num:], y[train_num:], batch_size = batch_size)
 
