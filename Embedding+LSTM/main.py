@@ -19,17 +19,17 @@ def doc2num(s, maxlen):
 def predict(model,s):
     s = np.array(doc2num(list(jieba.cut(s)), maxlen))
     s = s.reshape((1, s.shape[0]))
-    return model.predict_classes(s, verbose=0)[0][0]
+    return model.predict_classes(s, verbose=0)[0]
 
 if __name__ == '__main__':
     #Train=0  Predict=1
     FLAG = 0
     maxlen = 100
     min_count = 5
-    pos = pd.read_excel('../../pos.xls', header=None)
+    pos = pd.read_excel('pos.xls', header=None)
     pos['label'] = 0
-    pos['label'][:5000] = 1
-    neg = pd.read_excel('../../neg.xls', header=None)
+    pos.loc[:5000,'label'] = 1
+    neg = pd.read_excel('neg.xls', header=None)
     neg['label'] = 2
     all_ = pos.append(neg, ignore_index=True)
     all_['words'] = all_[0].apply(lambda s: list(jieba.cut(s)))
@@ -77,7 +77,7 @@ if __name__ == '__main__':
         batch_size = 128
         train_num = 15000
 
-        model.fit(x[:train_num], y[:train_num], batch_size = batch_size, epochs=2)
+        model.fit(x[:train_num], y[:train_num], batch_size = batch_size, epochs=30)
 
         model.evaluate(x[train_num:], y[train_num:], batch_size = batch_size)
 
@@ -87,5 +87,5 @@ if __name__ == '__main__':
     if FLAG == 1:
         model_name = 'model.h5'
         model = load_model(model_name)
-        s = '很好'
-        print predict(model,s)
+        s = '糟糕的小说'
+        print  predict(model,s)
