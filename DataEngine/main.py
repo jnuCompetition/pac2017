@@ -1,6 +1,8 @@
 #coding=utf-8
 
 import pandas as pd
+import warnings
+warnings.filterwarnings("ignore")
 
 def mergeData():
 	files_1= ['第一批训练数据-1（13424） .xls','第一批训练数据-2（9824） .xls',
@@ -15,7 +17,7 @@ def mergeData():
 		  '第二批训练数据-7（179）.xls','第二批训练数据-8（221）.xls','第二批训练数据-9（253）.xls']
 
 
-	dataName = 'data.xls'
+	dataName = 'data.csv'
 
 	columns=['cmt','act','fav','eval','penv','pser','adv','time','ptotal','senv','qua','sser','stotal','link']    
 
@@ -41,5 +43,19 @@ def mergeData():
 	data.columns=columns 
 	data.to_csv(dataName,index=False,encoding='utf-8')
 
+def c2e(labels,x):
+	return labels.index(x)
+
+def getTrain(data,pname,lable_name,label_value):
+	train = data[data.ix[:,'act']==pname]
+	train.loc[:,label_name] = map(lambda x:c2e(label_value,x),train[label_name])
+	return train.loc[:,['cmt',label_name]]    	
+
 if __name__ == '__main__':
-	mergeData()	
+	mergeData()
+	#data = pd.read_csv('data.csv',low_memory=False)
+	#pname = 'ApplePay'
+	#label_name = 'ptotal'
+	#label_value = ['差','中','好']
+	#train = getTrain(data,pname,label_name,label_value)
+	#print train.ix[:,'ptotal'].value_counts()
