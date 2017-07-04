@@ -39,7 +39,6 @@ def mergeData():
 	    			tdata.loc[:,13]=None
 			data = data.append(tdata,ignore_index=True)
 	# Reset columns as English name
-	print data.shape
 	data.columns=columns 
 	data.to_csv(dataName,index=False,encoding='utf-8')
 
