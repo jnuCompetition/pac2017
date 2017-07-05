@@ -1,15 +1,6 @@
 #coding=utf-8
 
-##################################
-#   desc: data.py  
-#   author: zhpmatrix
-#   date:   2017-07-03
-
-###################################
-
-
 import pandas as pd
-import os
 import numpy as np
 from keras.utils import np_utils
 import pickle
@@ -17,9 +8,8 @@ import jieba
 
 def mergeData():
 	dataName = 'data.csv'
-        dataDir = 'data/'
-	
-        files_1= ['第一批训练数据-1（13424） .xls','第一批训练数据-2（9824） .xls',
+	dataDir = 'data/'
+	files_1= ['第一批训练数据-1（13424） .xls','第一批训练数据-2（9824） .xls',
 		  '第一批训练数据-3（2338）.xls','第一批训练数据-4（8696）.xls',
 		  '第一批训练数据-5（12965）.xls','第一批训练数据-6（22043）.xls']
 	files_2 = ['第二批训练数据-10（266）.xls','第二批训练数据-11（403）.xls',
@@ -29,8 +19,8 @@ def mergeData():
 		  '第二批训练数据-3（36）.xls','第二批训练数据-4（49）.xls',
 		  '第二批训练数据-5（67）.xls','第二批训练数据-6（98）.xls',
 		  '第二批训练数据-7（179）.xls','第二批训练数据-8（221）.xls','第二批训练数据-9（253）.xls']
-        columns=['cmt','act','fav','eval','penv','pser','adv','time','ptotal','senv','qua','sser','stotal','link']
-        data=pd.DataFrame()
+	columns=['cmt','act','fav','eval','penv','pser','adv','time','ptotal','senv','qua','sser','stotal','link']
+	data=pd.DataFrame()
 	files = [files_1,files_2]
 	for i in range(len(files)):
 		for fname in files[i]:
@@ -40,7 +30,7 @@ def mergeData():
 	    		tdata = tdata[2:]
 			# Add link column for first batch data
 			if i == 0:
-	    			tdata.loc[:,13]=None
+				tdata.loc[:,13]=None
 			data = data.append(tdata,ignore_index=True)
 	# Reset columns as English name
 	data.columns=columns 
@@ -56,11 +46,39 @@ def getTrain(data,pname,label_name,label_value):
 	return train.loc[:,['cmt',label_name]]    	
 
 def word2vec(s,word_dict,word_set,maxlen): 
-    s = [i for i in s if i in word_set]
-    s = s[:maxlen] + ['']*max(0, maxlen-len(s))
-    return list(word_dict[s])
+    	s = [i for i in s if i in word_set]
+    	s = s[:maxlen] + ['']*max(0, maxlen-len(s))
+    	return list(word_dict[s])
 
-def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path):
+def getStopWords(stopwords_path):
+	stopwords = []
+	f = open(stopwords_path, 'r')
+	while True:
+    		line = f.readline()
+    		if len(line) == 0:
+        		break;
+    		line = ''.join(line).strip('\n')
+		stopwords.append(line.decode('utf-8'))
+	f.close()
+	return stopwords
+
+def filterCmt(cutwords,stopwords):
+	for word in cutwords:
+		if word in stopwords:
+			# Remove words
+			# print word.encode('utf-8')
+			cutwords.remove(word)
+	# Rest words
+	#for word in cutwords:
+	#	print word.encode('utf-8')
+	return cutwords
+
+def saveDict(_dict,dict_path):
+    _file = open(dict_path,'w')
+    pickle.dump(_dict,_file)
+    _file.close() 
+    
+def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path):
     '''
         data:
         _min: min value of word freq
@@ -68,27 +86,28 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path):
     '''
     # Cut words
     data['words'] = data['cmt'].apply(lambda s: list(jieba.cut(s)))
-    
+   
     # Word bags
     content = []
     for i in data['words']:
-            content.extend(i)
-
-    word_dict = pd.Series(content).value_counts()
-    word_dict = word_dict[word_dict >= _min]
+            content.extend(i)	
     
+    word_dict = pd.Series(content).value_counts()
+    
+    # Stop words
+    stopwords = getStopWords(stopwords_path)
+    indexs = filterCmt(list(word_dict.index),stopwords)
+    word_dict = word_dict[indexs]
+    
+    word_dict = word_dict[word_dict >= _min]
     # Indexing words
     word_dict[:] = range(1, len(word_dict)+1)
     word_dict[''] = 0
     word_set = set(word_dict.index)
     
     # Dump word set and dict for predicting with jieba
-    wdict = open(word_dict_path,'w')
-    pickle.dump(word_dict,wdict)
-    
-    wset = open(word_set_path,'w')
-    pickle.dump(word_set,wset)
-    
+    saveDict(word_dict,word_dict_path)
+    saveDict(word_set,word_set_path)
     data['vec'] = data['words'].apply(lambda s: word2vec(s,word_dict,word_set,_max))
     
     # Shuffle data
@@ -103,16 +122,18 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path):
     return x,y,len(word_dict)
 
 if __name__ == '__main__':
-
-	_max = 100
-   	_min = 5
-    	pname = 'ApplePay'
-    	label_name = 'ptotal'
-    	label_value = ['差','中','好']
+	#mergeData()
+	
+       _max = 100
+       _min = 5
+       pname = 'ApplePay'
+       label_name = 'ptotal'
+       label_value = [u'差',u'中',u'好']
     
-    	word_dict_path = 'wdict'
-    	word_set_path = 'wset'
-        data = pd.read_csv('data.csv')
-        data  = getTrain(data,pname,label_name,label_value)
-	x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path)
-        print x
+       word_dict_path = 'wdict'
+       word_set_path = 'wset'
+       stopwords_path = 'stopwords'
+       data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+       data  = getTrain(data,pname,label_name,label_value)
+       x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
+        #print x

@@ -40,7 +40,7 @@ def train(x,y,params):
     model.evaluate(x[train_num:], y[train_num:], batch_size =params['batch_size'])
     model.save(params['save'])
 
-def predict(model,sset,maxlen,wdict,wset):
+def predict(model,sset,maxlen,wdict,wset,stopwords_path):
     '''
         model:
         s: sentence to predict
@@ -50,8 +50,11 @@ def predict(model,sset,maxlen,wdict,wset):
                 1: 中
                 2: 优
     '''
+    stopwords = getStopWords(stopwords_path)
     for s in sset:
-        s = np.array(word2vec(list(jieba.cut(s)),wdict,wset,maxlen))
+        # Remove stop words
+        cutwords = filterCmt( list(jieba.cut(s)),stopwords )
+        s = np.array(word2vec(cutwords,wdict,wset,maxlen))
         s = s.reshape((1, s.shape[0]))
         print model.predict_classes(s, verbose=0)[0]
 
@@ -66,6 +69,7 @@ if __name__ == '__main__':
     word_dict_path = 'wdict'
     word_set_path = 'wset'
     model_path = 'model.h5'
+    stopwords_path = 'stopwords'
 
     # Test set
     sset = ['产品怎么这么差',
@@ -77,7 +81,7 @@ if __name__ == '__main__':
         data = pd.read_csv('data.csv')
         # Get data
         data  = getTrain(data,pname,label_name,label_value)
-        x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path)
+        x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
         
         # Train model
         params = {}
@@ -90,6 +94,7 @@ if __name__ == '__main__':
         params['save'] = model_path
         
         train(x,y,params)    
+    
     else:
         _wdict = open(word_dict_path,'r')
         wdict = pickle.load(_wdict)
@@ -98,4 +103,4 @@ if __name__ == '__main__':
         wset = pickle.load(_wset)
 
         model = load_model(model_path)
-        predict(model,sset,_max,wdict,wset)
+        predict(model,sset,_max,wdict,wset,stopwords_path)
