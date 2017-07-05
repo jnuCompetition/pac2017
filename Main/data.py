@@ -63,21 +63,18 @@ def getStopWords(stopwords_path):
 	return stopwords
 
 def filterCmt(cutwords,stopwords):
-	for word in cutwords:
-		if word in stopwords:
-			# Remove words
-			# print word.encode('utf-8')
-			cutwords.remove(word)
-	# Rest words
-	#for word in cutwords:
-	#	print word.encode('utf-8')
-	return cutwords
+	return [word for word in cutwords if word not in stopwords]
 
 def saveDict(_dict,dict_path):
     _file = open(dict_path,'w')
     pickle.dump(_dict,_file)
     _file.close() 
-    
+
+def show(word_dict):
+	print 'Length:',len(word_dict)
+	print 'Elements:\n'
+	print word_dict
+
 def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path):
     '''
         data:
@@ -85,7 +82,7 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
         _max: length of word vector
     '''
     # Cut words
-    data['words'] = data['cmt'].apply(lambda s: list(jieba.cut(s)))
+    data['words'] = data['cmt'].apply(lambda s: list(jieba.cut(s.replace('\n',''))))
    
     # Word bags
     content = []
@@ -100,11 +97,12 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
     word_dict = word_dict[indexs]
     
     word_dict = word_dict[word_dict >= _min]
+    #show(word_dict)
+    #exit()
     # Indexing words
     word_dict[:] = range(1, len(word_dict)+1)
     word_dict[''] = 0
     word_set = set(word_dict.index)
-    
     # Dump word set and dict for predicting with jieba
     saveDict(word_dict,word_dict_path)
     saveDict(word_set,word_set_path)
@@ -122,7 +120,7 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
     return x,y,len(word_dict)
 
 if __name__ == '__main__':
-	#mergeData()
+       #mergeData()
 	
        _max = 100
        _min = 5
@@ -133,7 +131,8 @@ if __name__ == '__main__':
        word_dict_path = 'wdict'
        word_set_path = 'wset'
        stopwords_path = 'stopwords'
+       
        data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
-       data  = getTrain(data,pname,label_name,label_value)
+       data = getTrain(data,pname,label_name,label_value)
        x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
-        #print x
+     

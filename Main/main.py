@@ -7,7 +7,7 @@
 
 ###################################
 
-FLAG = 1 # Train: 0, Predict: 1
+FLAG = 0 # Train: 0, Predict: 1
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ def predict(model,sset,maxlen,wdict,wset,stopwords_path):
     stopwords = getStopWords(stopwords_path)
     for s in sset:
         # Remove stop words
-        cutwords = filterCmt( list(jieba.cut(s)),stopwords )
+        cutwords = filterCmt( list(jieba.cut(s.replace('\n',''))),stopwords )
         s = np.array(word2vec(cutwords,wdict,wset,maxlen))
         s = s.reshape((1, s.shape[0]))
         print model.predict_classes(s, verbose=0)[0]
