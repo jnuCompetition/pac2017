@@ -7,7 +7,7 @@
 
 ###################################
 
-FLAG = 1 # Train: 0, Predict: 1
+FLAG = 0 # Train: 0, Predict: 1
 
 import numpy as np
 import pandas as pd
@@ -18,10 +18,26 @@ from keras.layers import LSTM
 from keras.models import load_model
 from keras.utils import np_utils
 from data import *
+from sklearn import metrics
 import pickle
 
 import warnings
 warnings.filterwarnings("ignore")
+
+def show_metrics(real,pred):
+    precision = metrics.precision_score(real,pred,average='micro')
+    recall = metrics.recall_score(real,pred,average='micro')
+    f1_score = metrics.f1_score(real,pred,average='micro')
+    print 'Test Results:'
+    print 'Precision: {}'.format(precision)
+    print 'Recall: {}'.format(recall)
+    print 'F1_score: {}'.format(f1_score)
+
+def vec2num(categorical_label):
+    labels = []
+    for label in categorical_label.tolist():
+        labels.append(label.index(1))
+    return labels
 
 def train(x,y,params):
     model = Sequential()
@@ -45,11 +61,15 @@ def train(x,y,params):
     _results['loss'] = results[0]
     _results['acc'] = results[1]
     print _results
+    
+    pred = model.predict_classes(x[train_num:], verbose=False)
+    pred = pred.tolist()
+    real = vec2num(y[train_num:])
+    show_metrics(real,pred)
 
     model.save(params['save'])
 
 def showCutWords(cutwords):
-     print '----------------'
      for word in cutwords:
          print word.encode('utf-8')
 
@@ -67,7 +87,7 @@ def predict(model,sset,maxlen,wdict,wset,stopwords_path):
     for s in sset:
         # Remove stop words
         cutwords = filterCmt( list(jieba.cut(s.replace('\n',''))),stopwords )
-        showCutWords(cutwords)
+        #showCutWords(cutwords)
         s = np.array(word2vec(cutwords,wdict,wset,maxlen))
         s = s.reshape((1, s.shape[0]))
         print model.predict_classes(s, verbose=False)[0]
@@ -104,7 +124,7 @@ if __name__ == '__main__':
         params['dropout'] = 0.5
         params['batch_size'] = 128
         params['kfolds'] = 5
-        params['epochs']=2
+        params['epochs']=1
         params['save'] = model_path
         
         train(x,y,params)    
