@@ -24,7 +24,21 @@ import pickle
 import warnings
 warnings.filterwarnings("ignore")
 
-def show_metrics(real,pred):
+def find_all_index(arr,item):
+    return [i for i,a in enumerate(arr) if a == item]
+def get_all_value(arr,index):
+    return [arr[idx] for idx in index]
+
+def show_metrics(real,pred,label='#'):
+    '''
+        desc: show metrics for diff sample
+              '#': all samples
+              '0': label = 0 and so on
+    '''
+    if label != '#':
+        index = find_all_index(real,item=label)
+        real = get_all_value(real,index)
+        pred = get_all_value(pred,index)
     precision = metrics.precision_score(real,pred,average='micro')
     recall = metrics.recall_score(real,pred,average='micro')
     f1_score = metrics.f1_score(real,pred,average='micro')
@@ -55,18 +69,20 @@ def train(x,y,params):
     model.fit(x[:train_num], y[:train_num], batch_size = params['batch_size'], epochs=params['epochs'],verbose=True)
    
     # Get loss and acc from test set
-    results = []
-    _results = {}
-    results = model.evaluate(x[train_num:], y[train_num:], batch_size =params['batch_size'],verbose=True)
-    _results['loss'] = results[0]
-    _results['acc'] = results[1]
-    print _results
+    #results = []
+    #_results = {}
+    #results = model.evaluate(x[train_num:], y[train_num:], batch_size =params['batch_size'],verbose=True)
+    #_results['loss'] = results[0]
+    #_results['acc'] = results[1]
+    #print _results
     
     pred = model.predict_classes(x[train_num:], verbose=False)
     pred = pred.tolist()
     real = vec2num(y[train_num:])
-    show_metrics(real,pred)
-
+    
+    label = '0'
+    show_metrics(real,pred,label)
+    
     model.save(params['save'])
 
 def showCutWords(cutwords):
