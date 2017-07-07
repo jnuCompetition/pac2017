@@ -3,8 +3,10 @@
 import pandas as pd
 import numpy as np
 from keras.utils import np_utils
+from gensim.models import word2vec
 import pickle
 import jieba
+import numpy as np
 
 def mergeData():
 	dataName = 'data.csv'
@@ -45,7 +47,7 @@ def getTrain(data,pname,label_name,label_value):
 	train.loc[:,label_name] = map(lambda x:c2e(label_value,x),train[label_name])
 	return train.loc[:,['cmt',label_name]]    	
 
-def word2vec(s,word_dict,word_set,maxlen): 
+def _word2vec(s,word_dict,word_set,maxlen): 
     	s = [i for i in s if i in word_set]
     	s = s[:maxlen] + ['']*max(0, maxlen-len(s))
     	return list(word_dict[s])
@@ -97,8 +99,6 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
     word_dict = word_dict[indexs]
     
     word_dict = word_dict[word_dict >= _min]
-    #show(word_dict)
-    #exit()
     # Indexing words
     word_dict[:] = range(1, len(word_dict)+1)
     word_dict[''] = 0
@@ -106,7 +106,7 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
     # Dump word set and dict for predicting with jieba
     saveDict(word_dict,word_dict_path)
     saveDict(word_set,word_set_path)
-    data['vec'] = data['words'].apply(lambda s: word2vec(s,word_dict,word_set,_max))
+    data['vec'] = data['words'].apply(lambda s: _word2vec(s,word_dict,word_set,_max))
     
     # Shuffle data
     idx = range(len(data))
@@ -118,6 +118,39 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
     y = y.reshape((-1,1)) 
     y = np_utils.to_categorical(y)
     return x,y,len(word_dict)
+
+def word2vec_(words,model):
+    wordMat = []
+    for word in words:
+        try:
+            vec = model[word].tolist()
+            wordMat.append(vec)
+        except KeyError:
+            print word,' Not in vacab!'
+    return np.average(wordMat,axis=0)
+
+def splitXY_(data,label_name,stopwords_path):
+    # Cut words
+    data['words'] = data['cmt'].apply(lambda s: list(jieba.cut(s.replace('\n',''))))
+   
+    # Stop words
+    stopwords = getStopWords(stopwords_path)
+    data['words'] = data['words'].apply(lambda s: filterCmt(s,stopwords)) 
+    
+    # Word2Vec
+    model = word2vec.Word2Vec(data['words'].tolist(),min_count=5,size=100,workers=4)
+    data['vec']=data['words'].apply(lambda s: word2vec_(s,model))
+    
+    # Shuffle data
+    idx = range(len(data))
+    np.random.shuffle(idx)
+    data = data.loc[idx]
+
+    x = np.array(list(data['vec']))
+    y = np.array(list(data[label_name]))
+    y = y.reshape((-1,1)) 
+    y = np_utils.to_categorical(y)
+    return x,y
 
 if __name__ == '__main__':
        #mergeData()
@@ -134,5 +167,5 @@ if __name__ == '__main__':
        
        data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
        data = getTrain(data,pname,label_name,label_value)
-       x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
-     
+       x,y=splitXY_(data,label_name,stopwords_path)
+       #print x

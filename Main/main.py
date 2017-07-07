@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import jieba
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Dropout, Embedding
+from keras.layers import Input,Dense, Activation, Dropout, Embedding
 from keras.layers import LSTM
 from keras.models import load_model
 from keras.utils import np_utils
@@ -85,6 +85,41 @@ def train(x,y,params):
     
     model.save(params['save'])
 
+def _train(x,y,params):
+    model = Sequential()
+    #model.add(Embedding(params['input_dim'], 256, input_length=params['input_length']))
+    #model.add(LSTM(128)) 
+    ##################################
+    #How to define netword structure?
+    ##################################
+    model.add(Dropout(params['dropout']))
+    model.add( Dense(3,activation='softmax') )
+    # Print model
+    model.summary()
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+    
+    train_num = int( (1-1.0/params['kfolds'])*x.shape[0] )
+    model.fit(x[:train_num], y[:train_num], batch_size = params['batch_size'], epochs=params['epochs'],verbose=True)
+   
+    # Get loss and acc from test set
+    #results = []
+    #_results = {}
+    #results = model.evaluate(x[train_num:], y[train_num:], batch_size =params['batch_size'],verbose=True)
+    #_results['loss'] = results[0]
+    #_results['acc'] = results[1]
+    #print _results
+    
+    pred = model.predict_classes(x[train_num:], verbose=False)
+    pred = pred.tolist()
+    real = vec2num(y[train_num:])
+    
+    label = '0'
+    show_metrics(real,pred,label)
+    
+    model.save(params['save'])
+
 def showCutWords(cutwords):
      for word in cutwords:
          print word.encode('utf-8')
@@ -104,7 +139,7 @@ def predict(model,sset,maxlen,wdict,wset,stopwords_path):
         # Remove stop words
         cutwords = filterCmt( list(jieba.cut(s.replace('\n',''))),stopwords )
         #showCutWords(cutwords)
-        s = np.array(word2vec(cutwords,wdict,wset,maxlen))
+        s = np.array(_word2vec(cutwords,wdict,wset,maxlen))
         s = s.reshape((1, s.shape[0]))
         print model.predict_classes(s, verbose=False)[0]
 
@@ -131,19 +166,20 @@ if __name__ == '__main__':
         data = pd.read_csv('data.csv')
         # Get data
         data  = getTrain(data,pname,label_name,label_value)
-        x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
+        #x,y,dict_len = splitXY(data,label_name,stopwords_path)
+        x,y = splitXY_(data,label_name,stopwords_path)
         
         # Train model
         params = {}
         params['input_length']=_max
-        params['input_dim'] = dict_len
+        #params['input_dim'] = dict_len
         params['dropout'] = 0.5
         params['batch_size'] = 128
         params['kfolds'] = 5
-        params['epochs']=1
+        params['epochs']=50
         params['save'] = model_path
         
-        train(x,y,params)    
+        _train(x,y,params)    
     
     else:
         _wdict = open(word_dict_path,'r')
