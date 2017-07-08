@@ -1,26 +1,19 @@
 #coding=utf-8
 
-##################################
-#   desc: data.py  
-#   author: zhpmatrix
-#   date:   2017-07-05
-
-###################################
-
 FLAG = 0 # Train: 0, Predict: 1
 
 import numpy as np
 import pandas as pd
 import jieba
 from keras.models import Sequential
-from keras.layers import Input,Dense, Activation, Dropout, Embedding
+from keras.layers import Dense, Activation, Dropout, Embedding
 from keras.layers import LSTM
 from keras.models import load_model
 from keras.utils import np_utils
-from data import *
 from sklearn import metrics
+#import data
+from data import *
 import pickle
-
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -28,24 +21,20 @@ def find_all_index(arr,item):
     return [i for i,a in enumerate(arr) if a == item]
 def get_all_value(arr,index):
     return [arr[idx] for idx in index]
-
-def show_metrics(real,pred,label='#'):
-    '''
-        desc: show metrics for diff sample
-              '#': all samples
-              '0': label = 0 and so on
-    '''
-    if label != '#':
+def show_metrics(real,pred):
+    for label in range(0,3):
         index = find_all_index(real,item=label)
-        real = get_all_value(real,index)
-        pred = get_all_value(pred,index)
-    precision = metrics.precision_score(real,pred,average='micro')
-    recall = metrics.recall_score(real,pred,average='micro')
-    f1_score = metrics.f1_score(real,pred,average='micro')
-    print 'Test Results:'
-    print 'Precision: {}'.format(precision)
-    print 'Recall: {}'.format(recall)
-    print 'F1_score: {}'.format(f1_score)
+        _real = get_all_value(real,index)
+        _pred = get_all_value(pred,index)
+        precision = metrics.precision_score(_real,_pred,average='micro')
+        #recall = metrics.recall_score(_real,_pred,average='micro')
+        #f1_score = metrics.f1_score(_real,_pred,average='micro')
+        print 'Test Results {}:'.format(label)
+        #print 'Real:',_real
+        #print 'Pred:',_pred
+        print 'Precision: {}'.format(precision)
+        #print 'Recall: {}'.format(recall)
+        #print 'F1_score: {}'.format(f1_score)
 
 def vec2num(categorical_label):
     labels = []
@@ -79,9 +68,8 @@ def train(x,y,params):
     pred = model.predict_classes(x[train_num:], verbose=False)
     pred = pred.tolist()
     real = vec2num(y[train_num:])
-    
-    label = '0'
-    show_metrics(real,pred,label)
+     
+    show_metrics(real,pred)
     
     model.save(params['save'])
 
@@ -114,10 +102,7 @@ def _train(x,y,params):
     pred = model.predict_classes(x[train_num:], verbose=False)
     pred = pred.tolist()
     real = vec2num(y[train_num:])
-    
-    label = '0'
-    show_metrics(real,pred,label)
-    
+    show_metrics(real,pred)
     model.save(params['save'])
 
 def showCutWords(cutwords):
@@ -134,14 +119,20 @@ def predict(model,sset,maxlen,wdict,wset,stopwords_path):
                 1: 中
                 2: 优
     '''
-    stopwords = getStopWords(stopwords_path)
+    stopwords = data.getStopWords(stopwords_path)
     for s in sset:
         # Remove stop words
-        cutwords = filterCmt( list(jieba.cut(s.replace('\n',''))),stopwords )
+        cutwords = data.filterCmt( list(jieba.cut(s.replace('\n',''))),stopwords )
         #showCutWords(cutwords)
-        s = np.array(_word2vec(cutwords,wdict,wset,maxlen))
+        s = np.array( data._word2vec(cutwords,wdict,wset,maxlen) )
         s = s.reshape((1, s.shape[0]))
-        print model.predict_classes(s, verbose=False)[0]
+        res = model.predict_classes(s, verbose=False)[0]
+        if res == 0:
+            print '差'
+        elif res == 1:
+            print '中'
+        else:
+            print '好'
 
 if __name__ == '__main__':
     
@@ -158,27 +149,27 @@ if __name__ == '__main__':
 
     # Test set
     sset = ['一个严肃的问题，招行双币一卡通，VISA+银联，是否可以用卡号+有效期通过visa消费 借记卡也可以这么消费啊？太不安全了',
-            '买东西很便宜',
-            '一定要给别人介绍',
-            'ApplePay这个东西很好呀']
+            'applepay只能是银联吗？ wlmouse 发表于 2016-2-26 09:57 地区变成美国，能绑外卡不。中国即可绑就像之前地区改美国也能绑银联卡一样',
+            '关于目前的部分Pos机对于ApplePay闪付的一个缺陷 505597029 发表于 2016-2-22 14:54 体验写的很仔细，点赞…不过很多收银员都不会用闪付才是真的缺陷…',
+            'Samsung Pay在中国注定干不过Apple Pay的原因 我看三星根本没想这么多。怎么样它都占据了手机器件，还有半导体芯片的上游，这个行业在他就会一直爽下去。他只要保证时刻不掉队即可。过几年几十年又出另一个苹果或者另几个，总有哪个死了，不过三星怎么都不会死。因为大家都得用它的器件。']
 
     if FLAG == 0:
         data = pd.read_csv('data.csv')
         # Get data
         data  = getTrain(data,pname,label_name,label_value)
-        #x,y,dict_len = splitXY(data,label_name,stopwords_path)
+        #x,y,dict_len = splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
         x,y = splitXY_(data,label_name,stopwords_path)
         
         # Train model
         params = {}
         params['input_length']=_max
-        #params['input_dim'] = dict_len
         params['dropout'] = 0.2
         params['batch_size'] = 128
         params['kfolds'] = 5
-        params['epochs']=50
+        params['epochs']= 80
         params['save'] = model_path
         
+        #params['input_dim'] = dict_len
         _train(x,y,params)    
     
     else:

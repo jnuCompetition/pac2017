@@ -77,12 +77,37 @@ def show(word_dict):
 	print 'Elements:\n'
 	print word_dict
 
+def imbalance(data,label_name):
+    subsample_num = 1000
+    subsample_min = 5
+    df1 = data[data[label_name] == 1].sample(subsample_num)
+    
+    num0 = data[data[label_name] == 0].shape[0]
+    add_0_num = subsample_num - num0
+    df0 = data[data[label_name] == 0]
+    for i in range(add_0_num/subsample_min):
+        _df0 = data[data[label_name] == 0].sample(subsample_min)
+        df0 = pd.concat([df0,_df0])
+    
+    num2 = data[data[label_name] == 2].shape[0]
+    add_2_num = subsample_num - num2
+    df2 = data[data[label_name] == 2]
+    for i in range(add_2_num/subsample_min):
+        _df2 = data[data[label_name] == 2].sample(subsample_min)
+        df2 = pd.concat([df2,_df2])
+    
+    data = pd.concat([df0,df1,df2])
+    data = data.reset_index(drop=True)
+    return data
+
 def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path):
     '''
         data:
         _min: min value of word freq
         _max: length of word vector
     '''
+    data = imbalance(data,label_name)
+
     # Cut words
     data['words'] = data['cmt'].apply(lambda s: list(jieba.cut(s.replace('\n',''))))
    
@@ -112,7 +137,7 @@ def splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_pat
     idx = range(len(data))
     np.random.shuffle(idx)
     data = data.loc[idx]
-
+    
     x = np.array(list(data['vec']))
     y = np.array(list(data[label_name]))
     y = y.reshape((-1,1)) 
@@ -130,6 +155,7 @@ def word2vec_(words,model):
     return np.average(wordMat,axis=0)
 
 def splitXY_(data,label_name,stopwords_path):
+    data = imbalance(data,label_name)
     # Cut words
     data['words'] = data['cmt'].apply(lambda s: list(jieba.cut(s.replace('\n',''))))
    
@@ -167,5 +193,6 @@ if __name__ == '__main__':
        
        data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
        data = getTrain(data,pname,label_name,label_value)
-       x,y=splitXY_(data,label_name,stopwords_path)
+       x,y,dict_len=splitXY(data,label_name,_min,_max,word_dict_path,word_set_path,stopwords_path)
+       #x,y=splitXY_(data,label_name,stopwords_path)
        #print x
