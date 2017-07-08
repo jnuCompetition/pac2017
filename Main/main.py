@@ -89,9 +89,9 @@ def _train(x,y,params):
     model = Sequential()
     #model.add(Embedding(params['input_dim'], 256, input_length=params['input_length']))
     #model.add(LSTM(128)) 
-    ##################################
-    #How to define netword structure?
-    ##################################
+    
+    x = np.reshape(x,(x.shape[0],x.shape[1],1))
+    model.add(LSTM(128,input_shape=(x.shape[1],x.shape[2])))
     model.add(Dropout(params['dropout']))
     model.add( Dense(3,activation='softmax') )
     # Print model
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         params = {}
         params['input_length']=_max
         #params['input_dim'] = dict_len
-        params['dropout'] = 0.5
+        params['dropout'] = 0.2
         params['batch_size'] = 128
         params['kfolds'] = 5
         params['epochs']=50
