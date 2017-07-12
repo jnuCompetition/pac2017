@@ -1,25 +1,8 @@
-#
-# Copyright 2016 The BigDL Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# Still in experimental stage!
-
 import itertools
 import re
+import datetime as dt
+import matplotlib.pyplot as plt
 from optparse import OptionParser
-
 from bigdl.dataset import news20
 from bigdl.nn.layer import *
 from bigdl.nn.criterion import *
@@ -143,15 +126,38 @@ def train(sc,
     optimizer.set_validation(
         batch_size=batch_size,
         val_rdd=val_rdd,
-        trigger=EveryEpoch()
+        trigger=EveryEpoch(),
     )
     train_model = optimizer.optimize()
+    
+    # Save to log
+    app_name='NLP-'+dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_summary = TrainSummary(log_dir='/tmp/bigdl_summaries',app_name=app_name)
+    train_summary.set_summary_trigger("Parameters", SeveralIteration(1))
+    val_summary = ValidationSummary(log_dir='/tmp/bigdl_summaries',app_name=app_name)
+    optimizer.set_train_summary(train_summary)
+    optimizer.set_val_summary(val_summary)
+
+    loss = np.array(train_summary.read_scalar("Loss"))
+    print(loss)
+#    plt.figure(figsize = (12,12))
+#    plt.subplot(2,1,1)
+#    plt.plot(loss[:,0],loss[:,1],label='loss')
+#    plt.xlim(0,loss.shape[0]+10)
+#    plt.title("loss")
+#    plt.subplot(2,1,2)
+#    plt.plot(top1[:,0],top1[:,1],label='top1')
+#    plt.xlim(0,loss.shape[0]+10)
+#    plt.title("top1 accuracy")
+#    plt.save('NLP.png')
+
+
 
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-a", "--action", dest="action", default="train")
     parser.add_option("-b", "--batchSize", dest="batchSize", default="120")
-    parser.add_option("-e", "--embedding_dim", dest="embedding_dim", default="50")  # noqa
+    parser.add_option("-e", "--embedding_dim", dest="embedding_dim", default="50")
     parser.add_option("-m", "--max_epoch", dest="max_epoch", default="15")
     parser.add_option("--model", dest="model_type", default="cnn")
     parser.add_option("-p", "--p", dest="p", default="0.0")
