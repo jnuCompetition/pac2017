@@ -1,7 +1,12 @@
 import itertools
 import re
 import datetime as dt
+
+import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 from optparse import OptionParser
 from bigdl.dataset import news20
 from bigdl.nn.layer import *
@@ -11,7 +16,7 @@ from bigdl.util.common import *
 from bigdl.util.common import Sample
 
 
-def text_to_words(review_text):
+def text_to_words(review_text):	
     letters_only = re.sub("[^a-zA-Z]", " ", review_text)
     words = letters_only.lower().split()
     return words
@@ -82,6 +87,8 @@ def build_model(class_num):
     model.add(LogSoftMax())
     return model
 
+def map_predict_label(l):
+    return np.array(l).argmax()
 
 def train(sc,
           batch_size,
@@ -126,31 +133,36 @@ def train(sc,
     optimizer.set_validation(
         batch_size=batch_size,
         val_rdd=val_rdd,
-        trigger=EveryEpoch(),
+        trigger=EveryEpoch()
     )
-    train_model = optimizer.optimize()
     
     # Save to log
     app_name='NLP-'+dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_summary = TrainSummary(log_dir='/tmp/bigdl_summaries',app_name=app_name)
+    train_summary = TrainSummary(log_dir='bigdl_summaries/',app_name=app_name)
     train_summary.set_summary_trigger("Parameters", SeveralIteration(1))
-    val_summary = ValidationSummary(log_dir='/tmp/bigdl_summaries',app_name=app_name)
+    val_summary = ValidationSummary(log_dir='bigdl_summaries/',app_name=app_name)
     optimizer.set_train_summary(train_summary)
     optimizer.set_val_summary(val_summary)
-
+    
+    train_model = optimizer.optimize()
+    
     loss = np.array(train_summary.read_scalar("Loss"))
-    print(loss)
-#    plt.figure(figsize = (12,12))
-#    plt.subplot(2,1,1)
-#    plt.plot(loss[:,0],loss[:,1],label='loss')
-#    plt.xlim(0,loss.shape[0]+10)
-#    plt.title("loss")
-#    plt.subplot(2,1,2)
-#    plt.plot(top1[:,0],top1[:,1],label='top1')
-#    plt.xlim(0,loss.shape[0]+10)
-#    plt.title("top1 accuracy")
-#    plt.save('NLP.png')
-
+    top1 = np.array(val_summary.read_scalar("Top1Accuracy"))
+    
+    plt.figure(figsize = (12,12))
+    plt.subplot(2,1,1)
+    plt.plot(loss[:,0],loss[:,1],label='loss')
+    plt.xlim(0,loss.shape[0]+10)
+    plt.title("loss")
+    plt.subplot(2,1,2)
+    plt.plot(top1[:,0],top1[:,1],label='top1')
+    plt.xlim(0,loss.shape[0]+10)
+    plt.title("top1 accuracy")
+    plt.savefig('NLP.jpg')
+    train_model.save('train_model.m') 
+    predictions = train_model.predict(val_rdd)
+    print('Predicted labels:')
+    print(','.join(str(map_predict_label(s)) for s in predictions.take(2)))
 
 
 if __name__ == "__main__":
