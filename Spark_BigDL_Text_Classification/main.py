@@ -1,3 +1,4 @@
+#coding=utf-8
 import itertools
 import re
 import datetime as dt
@@ -14,13 +15,14 @@ from bigdl.nn.criterion import *
 from bigdl.optim.optimizer import *
 from bigdl.util.common import *
 from bigdl.util.common import Sample
+from _data import *
+from bigdl.nn.layer import Model
+import pickle
 
-
-def text_to_words(review_text):	
-    letters_only = re.sub("[^a-zA-Z]", " ", review_text)
-    words = letters_only.lower().split()
+def text_to_words(review_text):
+    words = list(jieba.cut(review_text.replace('\n','')))
+    print(words)
     return words
-
 
 def analyze_texts(data_rdd):
     def index(w_c_i):
@@ -30,7 +32,6 @@ def analyze_texts(data_rdd):
         .map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b) \
         .sortBy(lambda w_c: - w_c[1]).zipWithIndex() \
         .map(lambda w_c_i: index(w_c_i)).collect()
-
 
 # pad([1, 2, 3, 4, 5], 0, 6)
 def pad(l, fill_value, width):
@@ -94,16 +95,20 @@ def train(sc,
           batch_size,
           sequence_len, max_words, embedding_dim, training_split):
     print('Processing text dataset')
-    texts = news20.get_news20()
+    
+    #texts = news20.get_news20()
+    raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+    texts = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
+    
     data_rdd = sc.parallelize(texts, 2)
-
     word_to_ic = analyze_texts(data_rdd)
 
     # Only take the top wc between [10, sequence_len]
     word_to_ic = dict(word_to_ic[10: max_words])
     bword_to_ic = sc.broadcast(word_to_ic)
 
-    w2v = news20.get_glove_w2v(dim=embedding_dim)
+    #w2v = news20.get_glove_w2v(dim=embedding_dim)
+    w2v=get_w2v(texts)
     filtered_w2v = dict((w, v) for w, v in w2v.items() if w in word_to_ic)
     bfiltered_w2v = sc.broadcast(filtered_w2v)
 
@@ -123,7 +128,7 @@ def train(sc,
         [training_split, 1-training_split])
 
     optimizer = Optimizer(
-        model=build_model(news20.CLASS_NUM),
+        model=build_model(3),
         training_rdd=train_rdd,
         criterion=ClassNLLCriterion(),
         end_trigger=MaxEpoch(max_epoch),
@@ -144,8 +149,9 @@ def train(sc,
     optimizer.set_train_summary(train_summary)
     optimizer.set_val_summary(val_summary)
     
+    # Start to train
     train_model = optimizer.optimize()
-    
+    # Train results
     loss = np.array(train_summary.read_scalar("Loss"))
     top1 = np.array(val_summary.read_scalar("Top1Accuracy"))
     
@@ -159,10 +165,25 @@ def train(sc,
     plt.xlim(0,loss.shape[0]+10)
     plt.title("top1 accuracy")
     plt.savefig('NLP.jpg')
-    train_model.save('train_model.m') 
-    predictions = train_model.predict(val_rdd)
+    
+    # Predict
+    sentences = [('ApplePay的服务比其他产品要好呀!',0)]
+    data_rdd = sc.parallelize(sentences, 2)
+    tokens_rdd = data_rdd.map(lambda text_label:
+                              ([w for w in text_to_words(text_label[0]) if
+                                w in bword_to_ic.value], text_label[1]))
+    padded_tokens_rdd = tokens_rdd.map(
+        lambda tokens_label: (pad(tokens_label[0], "##", sequence_len), tokens_label[1]))
+    vector_rdd = padded_tokens_rdd.map(lambda tokens_label:
+                                       ([to_vec(w, bfiltered_w2v.value,
+                                                embedding_dim) for w in
+                                         tokens_label[0]], tokens_label[1]))
+    sample_rdd = vector_rdd.map(
+        lambda vectors_label: to_sample(vectors_label[0], vectors_label[1], embedding_dim))
+    
+    predictions = train_model.predict(sample_rdd)
     print('Predicted labels:')
-    print(','.join(str(map_predict_label(s)) for s in predictions.take(2)))
+    print(','.join(str(map_predict_label(s)) for s in predictions.take(1)))
 
 
 if __name__ == "__main__":
@@ -184,7 +205,7 @@ if __name__ == "__main__":
         sequence_len = 50
         max_words = 1000
         training_split = 0.8
-        sc = SparkContext(appName="text_classifier",
+        sc = SparkContext(appName="sa",
                           conf=create_spark_conf())
         init_engine()
         train(sc,
