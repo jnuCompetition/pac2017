@@ -2,7 +2,8 @@
 import itertools
 import re
 import datetime as dt
-
+#import subprocess
+#subprocess.call(['java','-jar','bigdl-0.2.0-SNAPSHOT-jar-with-dependencies.jar'])
 import matplotlib
 # Force matplotlib to not use any Xwindows backend.
 matplotlib.use('Agg')
@@ -15,9 +16,10 @@ from bigdl.nn.criterion import *
 from bigdl.optim.optimizer import *
 from bigdl.util.common import *
 from bigdl.util.common import Sample
-from _data import *
+from data import *
 from bigdl.nn.layer import Model
 import pickle
+import json
 
 def text_to_words(review_text):
     words = list(jieba.cut(review_text.replace('\n','')))
@@ -97,7 +99,7 @@ def train(sc,
     print('Processing text dataset')
     
     #texts = news20.get_news20()
-    raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+    raw_data = pd.read_csv('~/zhpmatrix/data.csv',low_memory=False,encoding='utf-8')
     texts = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
     
     data_rdd = sc.parallelize(texts, 2)
@@ -151,6 +153,7 @@ def train(sc,
     
     # Start to train
     train_model = optimizer.optimize()
+    train_model.save('model.m')
     # Train results
     loss = np.array(train_summary.read_scalar("Loss"))
     top1 = np.array(val_summary.read_scalar("Top1Accuracy"))
