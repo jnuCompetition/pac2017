@@ -102,6 +102,46 @@ def get_w2v(data):
     w2v['##']=[0]*vec_len
     return w2v
 
+def noiseLabel(sample):
+    if sample == "其他":
+        return 2
+    else:
+        return 1
+
+def getTrain_(data,label_name):
+    data.loc[:,"noise"] = list(map(lambda x: noiseLabel(x),data["act"])) 
+    # Balance the data
+    train = _imbalance(data,label_name)
+    
+    # Test
+    trainNum = 4000
+    train = train.sample(trainNum)
+    
+    res=train.loc[:,['cmt',label_name]]
+    _res = np.array(res)
+    _data = []
+    for elem in _res:
+        _data.append((elem[0],elem[1]))
+    return _data
+
+def _imbalance(data,label_name):
+    """
+        desc: 'act' == '其他'(label = 1),else (label = 0)
+    """
+    subsample_num = 19000
+    subsample_min = 100
+    df1 = data[data[label_name] == 2].sample(subsample_num)
+    
+    num0 = data[data[label_name] == 1].shape[0]
+    add_0_num = subsample_num - num0
+    df0 = data[data[label_name] == 1]
+    for i in range(int(add_0_num/subsample_min)):
+        _df0 = data[data[label_name] == 1].sample(subsample_min)
+        df0 = pd.concat([df0,_df0])
+    
+    data = pd.concat([df0,df1])
+    data = data.reset_index(drop=True)
+    return data
 
 if __name__ == '__main__':
     
@@ -111,8 +151,7 @@ if __name__ == '__main__':
     #_data = filterCmt(_cutWords,data)
     #print (_data)
     
-    mergeData()
     
-    #raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+    raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
     #data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
     #w2v=get_w2v(data)
