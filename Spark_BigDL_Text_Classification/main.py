@@ -16,6 +16,7 @@ import pickle
 
 def text_to_words(review_text,stopwords):
     words = list(jieba.cut(review_text.replace('\n','')))
+    # Filter stop words
     words = filterCmt(words,stopwords)
     print(words)
     return words
@@ -95,7 +96,7 @@ def predict(sentences,embedding_dim,params):
 
     predictions = train_model.predict(sample_rdd)
     print('Predicted labels:')
-    print(','.join(str(map_predict_label(s)) for s in predictions.take(1)))
+    print(','.join(str(map_predict_label(s)) for s in predictions.take(4)))
 
 def saveFig(train_summary):
     # Train results
@@ -224,7 +225,10 @@ if __name__ == "__main__":
               sequence_len, max_words, embedding_dim, training_split,params)
         
         # Predict model
-        sentences = [('ApplePay的服务比其他产品要好呀!',0)]
+        sentences = [("一个严肃的问题，招行双币一卡通，VISA+银联，是否可以用卡号+有效期通过visa消费 借记卡也可以这么消费啊？太不安全了",0),
+                ("applepay只能是银联吗？ wlmouse 发表于 2016-2-26 09:57 地区变成美国，能绑外卡不。中国即可绑就像之前地区改美国也能绑银联卡一样",0),
+                ("关于目前的部分Pos机对于ApplePay闪付的一个缺陷 505597029 发表于 2016-2-22 14:54 体验写的很仔细，点赞…不过很多收银员都不会用闪>    付才是真的缺陷…",0),
+                ("Samsung Pay在中国注定干不过Apple Pay的原因 我看三星根本没想这么多。怎么样它都占据了手机器件，还有半导体芯片的上游，这个行业在他就会一直爽下去。他只要保证时刻不掉队即可。过几年几十年又出另一个苹果或者另几个，总有哪个死了，不过三星怎么都不会死。因为大家都得用它的器件。",0)]
         predict(sentences,embedding_dim,params)
         
         sc.stop()

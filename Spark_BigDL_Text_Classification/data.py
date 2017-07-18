@@ -40,6 +40,10 @@ def getTrain(data,pname,label_name,label_value):
     train = data[data.ix[:,'act']==pname]
     train = train.reset_index(drop=True)
     train.loc[:,label_name] = list(map(lambda x:c2e(label_value,x),train[label_name]))
+    
+    # Balance the data
+    train = imbalance(train,label_name)
+    
     res=train.loc[:,['cmt',label_name]]
     _res = np.array(res)
     _data = []
@@ -62,29 +66,29 @@ def getStopWords(stopwords_path):
 def filterCmt(cutwords,stopwords):
 	return [word for word in cutwords if word not in stopwords]
 
-#def imbalance(data,label_name):
-#    subsample_num = 1000
-#    subsample_min = 5
-#    df1 = data[data[label_name] == 1].sample(subsample_num)
-#    
-#    num0 = data[data[label_name] == 0].shape[0]
-#    add_0_num = subsample_num - num0
-#    df0 = data[data[label_name] == 0]
-#    for i in range(add_0_num/subsample_min):
-#        _df0 = data[data[label_name] == 0].sample(subsample_min)
-#        df0 = pd.concat([df0,_df0])
-#    
-#    num2 = data[data[label_name] == 2].shape[0]
-#    add_2_num = subsample_num - num2
-#    df2 = data[data[label_name] == 2]
-#    for i in range(add_2_num/subsample_min):
-#        _df2 = data[data[label_name] == 2].sample(subsample_min)
-#        df2 = pd.concat([df2,_df2])
-#    
-#    data = pd.concat([df0,df1,df2])
-#    data = data.reset_index(drop=True)
-#    return data
-#
+def imbalance(data,label_name):
+    subsample_num = 1000
+    subsample_min = 5
+    df1 = data[data[label_name] == 2].sample(subsample_num)
+    
+    num0 = data[data[label_name] == 1].shape[0]
+    add_0_num = subsample_num - num0
+    df0 = data[data[label_name] == 1]
+    for i in range(int(add_0_num/subsample_min)):
+        _df0 = data[data[label_name] == 1].sample(subsample_min)
+        df0 = pd.concat([df0,_df0])
+    
+    num2 = data[data[label_name] == 3].shape[0]
+    add_2_num = subsample_num - num2
+    df2 = data[data[label_name] == 3]
+    for i in range(int(add_2_num/subsample_min)):
+        _df2 = data[data[label_name] == 3].sample(subsample_min)
+        df2 = pd.concat([df2,_df2])
+    
+    data = pd.concat([df0,df1,df2])
+    data = data.reset_index(drop=True)
+    return data
+
 
 def get_w2v(data):
     w2v = {}
@@ -101,13 +105,13 @@ def get_w2v(data):
 
 if __name__ == '__main__':
     
-    data = getStopWords("stopwords")
-    cutWords = "张海鹏把这个处理一下呗！"
-    _cutWords = list(jieba.cut(cutWords.replace('\n','')))
-    _data = filterCmt(_cutWords,data)
-    print (_data)
+    #data = getStopWords("stopwords")
+    #cutWords = "张海鹏把这个处理一下呗！"
+    #_cutWords = list(jieba.cut(cutWords.replace('\n','')))
+    #_data = filterCmt(_cutWords,data)
+    #print (_data)
     
-    #mergeData()
+    mergeData()
     
     #raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
     #data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
