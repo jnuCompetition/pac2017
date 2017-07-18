@@ -47,32 +47,21 @@ def getTrain(data,pname,label_name,label_value):
         _data.append((elem[0],elem[1]))
     return _data
 
+def getStopWords(stopwords_path):
+    stopwords = []
+    f = open(stopwords_path,"r")
+    while True:
+        line = f.readline()
+        if len(line) == 0:
+            break
+        line = "".join(line).strip("\n")
+        stopwords.append(line)
+    f.close()
+    return stopwords
 
-#def _word2vec(s,word_dict,word_set,maxlen): 
-#    	s = [i for i in s if i in word_set]
-#    	s = s[:maxlen] + ['']*max(0, maxlen-len(s))
-#    	return list(word_dict[s])
+def filterCmt(cutwords,stopwords):
+	return [word for word in cutwords if word not in stopwords]
 
-#def getStopWords(stopwords_path):
-#    stopwords = []
-#    f = open(stopwords_path, 'r')
-#    while True:
-#        line = f.readline()
-#		if len(line) == 0:
-#				break
-#		line = ''.join(line).strip('\n')
-#        stopwords.append(line.decode('utf-8'))
-#    f.close()
-#    return stopwords
-
-#def filterCmt(cutwords,stopwords):
-#	return [word for word in cutwords if word not in stopwords]
-#
-#def saveDict(_dict,dict_path):
-#    _file = open(dict_path,'w')
-#    pickle.dump(_dict,_file)
-#    _file.close() 
-#
 #def imbalance(data,label_name):
 #    subsample_num = 1000
 #    subsample_min = 5
@@ -96,15 +85,6 @@ def getTrain(data,pname,label_name,label_value):
 #    data = data.reset_index(drop=True)
 #    return data
 #
-#def word2vec_(words,model):
-#    wordMat = []
-#    for word in words:
-#        try:
-#            vec = model[word].tolist()
-#            wordMat.append(vec)
-#        except KeyError:
-#            print (word,' Not in vacab!')
-#    return np.average(wordMat,axis=0)
 
 def get_w2v(data):
     w2v = {}
@@ -120,7 +100,15 @@ def get_w2v(data):
 
 
 if __name__ == '__main__':
+    
+    data = getStopWords("stopwords")
+    cutWords = "张海鹏把这个处理一下呗！"
+    _cutWords = list(jieba.cut(cutWords.replace('\n','')))
+    _data = filterCmt(_cutWords,data)
+    print (_data)
+    
     #mergeData()
-    raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
-    data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
-    w2v=get_w2v(data)
+    
+    #raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+    #data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
+    #w2v=get_w2v(data)

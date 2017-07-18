@@ -14,16 +14,17 @@ from bigdl.util.common import *
 from data import *
 import pickle
 
-def text_to_words(review_text):
+def text_to_words(review_text,stopwords):
     words = list(jieba.cut(review_text.replace('\n','')))
+    words = filterCmt(words,stopwords)
     print(words)
     return words
 
-def analyze_texts(data_rdd):
+def analyze_texts(data_rdd,stopwords):
     def index(w_c_i):
         ((w, c), i) = w_c_i
         return (w, (i + 1, c))
-    return data_rdd.flatMap(lambda text_label: text_to_words(text_label[0])) \
+    return data_rdd.flatMap(lambda text_label: text_to_words(text_label[0],stopwords)) \
         .map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b) \
         .sortBy(lambda w_c: - w_c[1]).zipWithIndex() \
         .map(lambda w_c_i: index(w_c_i)).collect()
@@ -77,10 +78,11 @@ def map_predict_label(l):
 def predict(sentences,embedding_dim,params):
 
     train_model,bword_to_ic,bfiltered_w2v=unpickler(params["path_to_model"],params["path_to_word_to_ic"],params["path_to_filtered_w2v"])
+    stopwords = getStopWords(params["path_to_stopwords"])
     # Predict
     data_rdd = sc.parallelize(sentences, 2)
     tokens_rdd = data_rdd.map(lambda text_label:
-                          ([w for w in text_to_words(text_label[0]) if
+                          ([w for w in text_to_words(text_label[0],stopwords) if
                             w in bword_to_ic.value], text_label[1]))
     padded_tokens_rdd = tokens_rdd.map(
         lambda tokens_label: (pad(tokens_label[0], "##", sequence_len), tokens_label[1]))
@@ -131,8 +133,9 @@ def train(sc,
     raw_data = pd.read_csv(params["data"],low_memory=False,encoding='utf-8')
     texts = getTrain(raw_data,params["act"],params["target"],params["target_value"])
     
+    stopwords = getStopWords(params["path_to_stopwords"])
     data_rdd = sc.parallelize(texts, 2)
-    word_to_ic = analyze_texts(data_rdd)
+    word_to_ic = analyze_texts(data_rdd,stopwords)
 
     # Only take the top wc between [10, sequence_len]
     word_to_ic = dict(word_to_ic[10: max_words])
@@ -143,7 +146,7 @@ def train(sc,
     bfiltered_w2v = sc.broadcast(filtered_w2v)
 
     tokens_rdd = data_rdd.map(lambda text_label:
-                              ([w for w in text_to_words(text_label[0]) if
+                              ([w for w in text_to_words(text_label[0],stopwords) if
                                 w in bword_to_ic.value], text_label[1]))
     padded_tokens_rdd = tokens_rdd.map(
         lambda tokens_label: (pad(tokens_label[0], "##", sequence_len), tokens_label[1]))
@@ -204,6 +207,7 @@ if __name__ == "__main__":
         params["path_to_word_to_ic"]=_dir+"word_to_ic.pkl"
         params["path_to_filtered_w2v"]=_dir+"filtered_w2v.pkl"
         
+        params["path_to_stopwords"]="stopwords"        
         params["data"] = "data.csv"
         params["logDir"] = "logs/"
         params["act"] = "ApplePay"
