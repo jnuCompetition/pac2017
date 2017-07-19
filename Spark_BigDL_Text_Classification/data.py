@@ -1,11 +1,16 @@
-#coding=utf-8
-
+#--coding=utf-8--
 import pandas as pd
 import numpy as np
 from gensim.models import word2vec
 import pickle
 import jieba
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties  
+font = FontProperties(fname=r"fonts/msyh.ttf", size=10)  
+plt.rcParams['axes.unicode_minus'] = False #用来正常显示负号
 
 def mergeData():
     dataName = 'data.csv'
@@ -143,6 +148,42 @@ def _imbalance(data,label_name):
     data = data.reset_index(drop=True)
     return data
 
+def ruleCmp(data):
+    posVals = {}
+    acts = ["银联62","ApplePay","银联钱包","云闪付"]
+    attrs = ["fav","eval","pser","adv","time","ptotal"]
+    attrName = ["优惠力度","应用评价","服务评价","活动宣传","活动时间","整体评价"]
+    for i in range(len(acts)):
+        vals = []
+        for j in range(len(attrs)):
+            act = data[data["act"] == acts[i]]
+            totalNum = act.shape[0]
+            _act = act[attrs[j]].value_counts()
+            if attrs[j] == "adv" or attrs[j] == "time":
+                val = float(_act["充分"]) / totalNum
+            else:
+                val = float( _act["好"] )/totalNum
+            vals.append(val)
+        posVals[acts[i]]=vals
+    
+    posDf=pd.DataFrame(posVals,index=attrs)
+    plt.figure(figsize=(8,8))
+    posDf.plot(kind="bar")
+    plt.title("相同属性不同银联产品对比",fontproperties=font)
+    plt.xlabel("银联产品属性",fontproperties=font)
+    plt.ylabel("积极百分比值",fontproperties=font)
+    plt.savefig("pos.png")
+    
+    for act in acts: 
+        plt.figure(figsize=(7,7))
+        plt.title(act+"不同属性积极百分比",fontproperties=font)
+        plt.xlabel("产品属性",fontproperties=font)
+        plt.ylabel("积极百分比值",fontproperties=font)
+        posDf[act].plot(kind="bar")
+        plt.savefig(act+".png")
+    return posDf
+
+
 if __name__ == '__main__':
     
     #data = getStopWords("stopwords")
@@ -151,7 +192,8 @@ if __name__ == '__main__':
     #_data = filterCmt(_cutWords,data)
     #print (_data)
     
-    
     raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+    posDf = ruleCmp(raw_data)
+    
     #data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
     #w2v=get_w2v(data)
