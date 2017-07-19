@@ -13,6 +13,7 @@ from bigdl.optim.optimizer import *
 from bigdl.util.common import *
 from data import *
 import pickle
+import time
 
 def text_to_words(review_text,stopwords):
     words = list(jieba.cut(review_text.replace('\n','')))
@@ -93,6 +94,13 @@ def build_model_(class_num):
 
 def map_predict_label(l):
     return np.array(l).argmax()
+
+def readComments(path_to_cmts):
+    cmts = []
+    f = open(path_to_cmts,"r")
+    cmts.append( (f.read(),0) )    
+    f.close()
+    return cmts
 
 def predict(sentences,embedding_dim,params):
 
@@ -198,6 +206,7 @@ def train(sc,
     
     saveFig(train_summary)
     pickler(train_model,word_to_ic,filtered_w2v)
+    print("Train over!")
 
 def _train(sc,
           batch_size,
@@ -255,6 +264,7 @@ def _train(sc,
     
     saveFig(train_summary)
     pickler(train_model,word_to_ic,filtered_w2v)
+    print("Train over!")
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -266,30 +276,30 @@ if __name__ == "__main__":
     parser.add_option("-p", "--p", dest="p", default="0.0")
 
     (options, args) = parser.parse_args(sys.argv)
+    batch_size = int(options.batchSize)
+    embedding_dim = int(options.embedding_dim)
+    max_epoch = int(options.max_epoch)
+    p = float(options.p)
+    model_type = options.model_type
+    
+    sequence_len = 50
+    max_words = 1000
+    training_split = 0.8
+    params = {}
+    _dir = "cellar/"
+    params["path_to_model"]=_dir+"model"
+    params["path_to_word_to_ic"]=_dir+"word_to_ic.pkl"
+    params["path_to_filtered_w2v"]=_dir+"filtered_w2v.pkl"
+    
+    params["path_to_stopwords"]="stopwords"        
+    params["data"] = "data.csv"
+    params["logDir"] = "logs/"
+    params["act"] = "ApplePay"
+    params["target"] = "ptotal"
+    params["target_value"] = [u"差",u"中",u"好"]
+    params["label_name"] = "noise"
     
     if options.action == "train":
-        batch_size = int(options.batchSize)
-        embedding_dim = int(options.embedding_dim)
-        max_epoch = int(options.max_epoch)
-        p = float(options.p)
-        model_type = options.model_type
-        
-        sequence_len = 50
-        max_words = 1000
-        training_split = 0.8
-        params = {}
-        _dir = "cellar/"
-        params["path_to_model"]=_dir+"model"
-        params["path_to_word_to_ic"]=_dir+"word_to_ic.pkl"
-        params["path_to_filtered_w2v"]=_dir+"filtered_w2v.pkl"
-        
-        params["path_to_stopwords"]="stopwords"        
-        params["data"] = "data.csv"
-        params["logDir"] = "logs/"
-        params["act"] = "ApplePay"
-        params["target"] = "ptotal"
-        params["target_value"] = [u"差",u"中",u"好"]
-        params["label_name"] = "noise"
 
         # Initialize env
         sc = SparkContext(appName="sa",conf=create_spark_conf())
@@ -299,7 +309,11 @@ if __name__ == "__main__":
         _train(sc,
               batch_size,
               sequence_len, max_words, embedding_dim, training_split,params)
-        
+        sc.stop()
+    elif options.action == "predict":
+        # Initialize env
+        sc = SparkContext(appName="sa",conf=create_spark_conf())
+        init_engine()
         # Predict model
         sentences = [("一个严肃的问题，招行双币一卡通，VISA+银联，是否可以用卡号+有效期通过visa消费 借记卡也可以这么消费啊？太不安全了",0),
                 ("applepay只能是银联吗？ wlmouse 发表于 2016-2-26 09:57 地区变成美国，能绑外卡不。中国即可绑就像之前地区改美国也能绑银联卡一样",0),
@@ -310,8 +324,9 @@ if __name__ == "__main__":
                 ("我试过了，闪付和扫码都有2-2咋我刚刚在全家买豆浆一毛都没减",0),
                 ("我今日用中国银行Apple Pay，华润万家，100-50不成功，换了其他银行信用卡，可以了来自[广州妈妈iPhone版]",0),
                 ("我已经无语了，说点什么呢？数据真的很糟糕！",0)]
-        predict(sentences_,embedding_dim,params)
-        
+        # Get current datetime 
+        _date = time.strftime('%Y-%m-%d',time.localtime(time.time()))
+        cmts_ = readComments("cmts/"+_date+".txt")
+        predict(cmts_,embedding_dim,params)
         sc.stop()
-    elif options.action == "test":
-        pass
+    
