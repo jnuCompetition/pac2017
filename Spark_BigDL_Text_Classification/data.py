@@ -183,6 +183,42 @@ def ruleCmp(data):
         plt.savefig(act+".png")
     return posDf
 
+def to_num(label):
+    if label == "好" or label == "充分":
+        return 0
+    elif label == "中" or label == "中等":
+        return 1
+    else:
+        return 2
+def corr(data):
+    acts = ["银联62","ApplePay","银联钱包","云闪付"]
+    attrs = ["fav","eval","pser","adv","time","ptotal"]
+    for attr in attrs:
+        data.loc[:,attr] = list(map(lambda x:to_num(x),data[attr]))
+    corrVals = {}
+    for act in acts:
+        corrs = []
+        _data = data[data["act"] == act]
+        for i in range(len(attrs)-1):
+            corrs.append(_data[attrs[i]].corr(_data["ptotal"]))
+        corrVals[act] = corrs
+    
+    corrDf=pd.DataFrame(corrVals,index=["fav","eval","pser","adv","time"])
+    plt.figure(figsize=(8,8))
+    corrDf.plot(kind="bar")
+    plt.title("相同属性不同银联产品相关系数对比",fontproperties=font)
+    plt.xlabel("银联产品属性",fontproperties=font)
+    plt.ylabel("相关系数",fontproperties=font)
+    plt.savefig("corr.png")
+    
+    for act in acts: 
+        plt.figure(figsize=(7,7))
+        plt.title(act+"不同属性相关系数",fontproperties=font)
+        plt.xlabel("产品属性",fontproperties=font)
+        plt.ylabel("相关系数",fontproperties=font)
+        corrDf[act].plot(kind="bar")
+        plt.savefig(act+".png")
+    return corrVals
 
 if __name__ == '__main__':
     
@@ -193,7 +229,7 @@ if __name__ == '__main__':
     #print (_data)
     
     raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
-    posDf = ruleCmp(raw_data)
-    
+    #posDf = ruleCmp(raw_data)
+    data = corr(raw_data)    
     #data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
     #w2v=get_w2v(data)
