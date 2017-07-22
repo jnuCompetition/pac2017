@@ -124,33 +124,14 @@ def predict(sentences,embedding_dim,params):
     print('Predicted labels:')
     print(','.join(str(map_predict_label(s)) for s in predictions.take(4)))
 
-def saveFig(train_summary):
+def saveFig(summary,figParams):
     # Train results
-    loss = np.array(train_summary.read_scalar("Loss"))
+    loss = np.array(summary.read_scalar(figParams["scalar_name"]))
     plt.figure(figsize = (12,12))
-    plt.plot(loss[:,0],loss[:,1],label='loss')
+    plt.plot(loss[:,0],loss[:,1],label=figParams["title"])
     plt.xlim(0,loss.shape[0]+10)
-    plt.title("loss")
-    plt.savefig('NLP.jpg')
-
-def pickler(train_model,word_to_ic,filtered_w2v):
-    _dir = "cellar/"
-    path_to_train_model = _dir+"model"
-    path_to_word_to_ic = _dir+"word_to_ic.pkl"
-    path_to_filtered_w2v = _dir+"filtered_w2v.pkl"
-    pickle.dump(word_to_ic,open(path_to_word_to_ic,"wb"))
-    pickle.dump(filtered_w2v,open(path_to_filtered_w2v,"wb"))
-    train_model.save(path_to_train_model,True)
-
-def unpickler(path_to_train_model,path_to_word_to_ic,
-                                    path_to_filtered_w2v):
-    word_to_ic = pickle.load(open(path_to_word_to_ic,"rb"))
-    filtered_w2v = pickle.load(open(path_to_filtered_w2v,"rb"))
-    train_model = Model.load(path_to_train_model)
-    bword_to_ic = sc.broadcast(word_to_ic)
-    bfiltered_w2v = sc.broadcast(filtered_w2v)
-    return train_model,bword_to_ic,bfiltered_w2v
-
+    plt.title(figParams["title"])
+    plt.savefig(figParams["title"]+'.jpg')
 
 def train(sc,
           batch_size,
@@ -184,7 +165,7 @@ def train(sc,
     sample_rdd = vector_rdd.map(
         lambda vectors_label: to_sample(vectors_label[0], vectors_label[1], embedding_dim))
 
-    train_rdd, test_rdd = sample_rdd.randomSplit(
+    train_rdd, val_rdd = sample_rdd.randomSplit(
         [training_split, 1-training_split])
 
     optimizer = Optimizer(
@@ -193,19 +174,29 @@ def train(sc,
         criterion=ClassNLLCriterion(),
         end_trigger=MaxEpoch(max_epoch),
         batch_size=batch_size,
-        optim_method=Adam())
-
+        optim_method="adam")
+    optimizer.set_validation(
+        batch_size = batch_size,
+        val_rdd = val_rdd,
+        trigger = EveryEpoch()
+    )
     # Save to log
     app_name='NLP-'+dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary = TrainSummary(log_dir=params["logDir"],app_name=app_name)
-    train_summary.set_summary_trigger("Parameters", SeveralIteration(2))
+    train_summary.set_summary_trigger("Parameters", SeveralIteration(1))
+    
+    val_summary = ValidationSummary(log_dir=params["logDir"],app_name=app_name)
     optimizer.set_train_summary(train_summary)
+    optimizer.set_val_summary(val_summary)
     
     # Start to train
     train_model = optimizer.optimize()
     
-    saveFig(train_summary)
-    pickler(train_model,word_to_ic,filtered_w2v)
+    summary = val_summary
+    figParams = {}
+    figParams["scalar_name"] = "Top1Accuracy"
+    figParams["title"] = "top1" # title is the same as label
+    saveFig(summary,figParams)
     print("Train over!")
 
 def _train(sc,
@@ -306,7 +297,7 @@ if __name__ == "__main__":
         init_engine()
 
         # Train model
-        _train(sc,
+        train(sc,
               batch_size,
               sequence_len, max_words, embedding_dim, training_split,params)
         sc.stop()
