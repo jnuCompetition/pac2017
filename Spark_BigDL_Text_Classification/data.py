@@ -9,7 +9,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties  
-font = FontProperties(fname=r"fonts/msyh.ttf", size=10)  
+font = FontProperties(fname=r"fonts/msyh.ttf", size=5)  
 plt.rcParams['axes.unicode_minus'] = False #用来正常显示负号
 
 def mergeData():
@@ -36,6 +36,8 @@ def mergeData():
                 tdata.loc[:,13]=None
             data = data.append(tdata,ignore_index=True)
     data.columns=columns
+    # Delete dirty data
+    data=data[data.act != "银联标签"]
     data.to_csv(dataName,index=False,encoding='utf-8')
 
 def c2e(labels,x):
@@ -167,20 +169,25 @@ def ruleCmp(data):
         posVals[acts[i]]=vals
     
     posDf=pd.DataFrame(posVals,index=attrs)
-    plt.figure(figsize=(8,8))
+    #plt.figure(figsize=(20,20))
     posDf.plot(kind="bar")
+    plt.xticks((0,1,2,3,4,5),tuple(attrName),fontproperties=font)
     plt.title("相同属性不同银联产品对比",fontproperties=font)
     plt.xlabel("银联产品属性",fontproperties=font)
     plt.ylabel("积极百分比值",fontproperties=font)
+    plt.legend(loc="upper right",prop=font)
     plt.savefig("pos.png")
-    
+    plt.close()
+
     for act in acts: 
-        plt.figure(figsize=(7,7))
+        plt.figure(figsize=(10,10))
+        posDf[act].plot(kind="bar",color="green")
+        plt.xticks((0,1,2,3,4,5),tuple(attrName),fontproperties=font)
         plt.title(act+"不同属性积极百分比",fontproperties=font)
         plt.xlabel("产品属性",fontproperties=font)
         plt.ylabel("积极百分比值",fontproperties=font)
-        posDf[act].plot(kind="bar")
         plt.savefig(act+".png")
+        plt.close()
     return posDf
 
 def to_num(label):
@@ -193,6 +200,7 @@ def to_num(label):
 def corr(data):
     acts = ["银联62","ApplePay","银联钱包","云闪付"]
     attrs = ["fav","eval","pser","adv","time","ptotal"]
+    attrName = ["优惠力度","应用评价","服务评价","活动宣传","活动时间"]
     for attr in attrs:
         data.loc[:,attr] = list(map(lambda x:to_num(x),data[attr]))
     corrVals = {}
@@ -204,21 +212,38 @@ def corr(data):
         corrVals[act] = corrs
     
     corrDf=pd.DataFrame(corrVals,index=["fav","eval","pser","adv","time"])
-    plt.figure(figsize=(8,8))
+    #plt.figure(figsize=(50,50))
     corrDf.plot(kind="bar")
+    plt.xticks((0,1,2,3,4),tuple(attrName),fontproperties=font)
     plt.title("相同属性不同银联产品相关系数对比",fontproperties=font)
     plt.xlabel("银联产品属性",fontproperties=font)
     plt.ylabel("相关系数",fontproperties=font)
-    plt.savefig("corr.png")
-    
-    for act in acts: 
-        plt.figure(figsize=(7,7))
-        plt.title(act+"不同属性相关系数",fontproperties=font)
-        plt.xlabel("产品属性",fontproperties=font)
-        plt.ylabel("相关系数",fontproperties=font)
-        corrDf[act].plot(kind="bar")
-        plt.savefig(act+".png")
+    plt.legend(loc="upper right",prop=font)
+    plt.savefig("corr/"+"corr.jpg")
+    plt.close()
+
+   # for act in acts: 
+   #     plt.figure(figsize=(10,10))
+   #     corrDf[act].plot(kind="bar")
+   #     plt.xticks((0,1,2,3,4),tuple(attrName),fontproperties=font)
+   #     plt.title(act+"不同属性相关系数",fontproperties=font)
+   #     plt.xlabel("产品属性",fontproperties=font)
+   #     plt.ylabel("相关系数",fontproperties=font)
+   #     plt.savefig("corr/"+act+".jpg")
+   #     plt.close()
     return corrVals
+
+def showImbalance(data,actName,label):
+    x = [0,1,2]
+    labelVal = ["中","好","差"]
+    y=data[data.act == actName][label].value_counts().tolist()
+    plt.xticks(tuple(x),tuple(labelVal),fontproperties=font)
+    plt.title("不同活动内容不同标签值数量比较",fontproperties=font)
+    plt.xlabel("标签值",fontproperties=font)
+    plt.ylabel("数量",fontproperties=font)
+    plt.bar(x,y)
+    plt.savefig("jpg/"+actName+label+".jpg")
+    plt.close()
 
 if __name__ == '__main__':
     
@@ -227,8 +252,15 @@ if __name__ == '__main__':
     #_cutWords = list(jieba.cut(cutWords.replace('\n','')))
     #_data = filterCmt(_cutWords,data)
     #print (_data)
+    #mergeData()
     
     raw_data = pd.read_csv('data.csv',low_memory=False,encoding='utf-8')
+    #actNames = ["银联钱包","银联62","ApplePay","云闪付"]
+    #columns=['fav','eval','pser','ptotal']
+    #for actName in actNames:
+    #    for column in columns:
+    #        showImbalance(raw_data,actName,column)
+    
     #posDf = ruleCmp(raw_data)
     data = corr(raw_data)    
     #data = getTrain(raw_data,'ApplePay','ptotal',[u'差',u'中',u'好'])
