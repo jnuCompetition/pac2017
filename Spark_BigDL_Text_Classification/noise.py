@@ -51,46 +51,33 @@ def to_sample(vectors, label, embedding_dim):
     flatten_features = list(itertools.chain(*vectors))
     features = np.array(flatten_features, dtype='float').reshape(
         [sequence_len, embedding_dim])
-
-    if model_type.lower() == "cnn":
-        features = features.transpose(1, 0)
     return Sample.from_ndarray(features, np.array(label))
 
-def build_model(class_num):
+def build_model():
     model = Sequential()
     if model_type.lower() == "lstm":
         model.add(Recurrent()
-                  .add(LSTM(embedding_dim, 64, p)))
+                  .add(LSTM(embedding_dim, 128, p)))
         model.add(Select(2, -1))
     elif model_type.lower() == "gru":
         model.add(Recurrent()
-                  .add(GRU(embedding_dim, 64, p)))
+                  .add(GRU(embedding_dim, 128, p)))
         model.add(Select(2, -1))
     else:
         raise ValueError('model can only be lstm, or gru')
 
-    model.add(Linear(64, 100))
-    model.add(Linear(100, class_num))
-    model.add(LogSigmoid())
+    model.add(Linear(128, 100))
+    model.add(Linear(100,1))
+    model.add(Sigmoid())
     return model
 
 def map_predict_label(l):
-    return np.array(l).argmax()
-
-def saveFig(summary):
-    # Train results
-    loss = np.array(summary.read_scalar("Loss"))
-    plt.figure(figsize = (12,12))
-    plt.plot(loss[:,0],loss[:,1],"ro",label="loss")
-    plt.xlim(0,loss.shape[0]+10)
-    if isinstance(summary,TrainSummary) == True:
-        figName = "train.jpg"
-        plt.title("train")
+    if l > 0.5:
+        return 1
     else:
-        figName = "validation.jpg"
-        plt.title("validation")
-    plt.savefig("res/"+figName)
-
+        return 0
+def map_groundtruth_label(l):
+    return l[0]
 
 def train(sc,
           batch_size,
@@ -100,7 +87,7 @@ def train(sc,
     raw_data = pd.read_csv(params["data"],low_memory=False,encoding='utf-8')
     
     # Get training data to classifiy real/noise
-    texts = getTrain_(raw_data,label_name=params["label_name"])
+    texts = getTrain_(raw_data,label_name=params["label_name"],trainNum=params["trainNum"])
     
     stopwords = getStopWords(params["path_to_stopwords"])
     data_rdd = sc.parallelize(texts, 2)
@@ -110,7 +97,8 @@ def train(sc,
     word_to_ic = dict(word_to_ic[10: max_words])
     bword_to_ic = sc.broadcast(word_to_ic)
 
-    w2v=get_w2v(texts)
+    w2v,all_cmts=get_w2v(texts)
+
     filtered_w2v = dict((w, v) for w, v in w2v.items() if w in word_to_ic)
     bfiltered_w2v = sc.broadcast(filtered_w2v)
 
@@ -130,39 +118,34 @@ def train(sc,
         [training_split, 1-training_split])
 
     optimizer = Optimizer(
-        model=build_model(2),
+        model=build_model(),
         training_rdd=train_rdd,
-        criterion=ClassNLLCriterion(),
+        criterion=BCECriterion(),
         end_trigger=MaxEpoch(max_epoch),
         batch_size=batch_size,
         optim_method="adam")
-    optimizer.set_validation(
-        batch_size = batch_size,
-        val_rdd = test_rdd,
-        trigger = SeveralIteration(2),
-        val_method=["Loss"]
-    )
-
-    # Save to log
-    app_name='NLP-'+dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_summary = TrainSummary(log_dir=params["logDir"],app_name=app_name)
-    val_summary = ValidationSummary(log_dir=params["logDir"],app_name=app_name)
-    optimizer.set_val_summary(val_summary)
-    optimizer.set_train_summary(train_summary)
     
-    # Start to train
     train_model = optimizer.optimize()
-    saveFig(train_summary)
-    saveFig(val_summary)
     print("Train over!")
+    predictions = train_model.predict(test_rdd)
+    y_pred = np.array([ map_predict_label(s) for s in predictions.collect()])
+    y_true = np.array([map_groundtruth_label(s.label) for s in test_rdd.collect()])
+    correct = 0
+    for i in range(0, y_pred.size):
+        if (y_pred[i] == y_true[i]):
+            correct += 1
+
+    accuracy = float(correct) / y_pred.size
+    print ('-'*20+'\n'
+            +'Prediction accuracy on test  set is: ',accuracy)
+   
 
 if __name__ == "__main__":
     parser = OptionParser()
-    parser.add_option("-a", "--action", dest="action", default="train")
     parser.add_option("-b", "--batchSize", dest="batchSize", default="120")
     parser.add_option("-e", "--embedding_dim", dest="embedding_dim", default="50")
     parser.add_option("-m", "--max_epoch", dest="max_epoch", default="10")
-    parser.add_option("--model", dest="model_type", default="lstm")
+    parser.add_option("--model", dest="model_type", default="gru")
     parser.add_option("-p", "--p", dest="p", default="0.0")
 
     (options, args) = parser.parse_args(sys.argv)
@@ -177,10 +160,10 @@ if __name__ == "__main__":
     training_split = 0.8
     params = {}
     _dir = "cellar/"
+    params["trainNum"] = 19000
     params["path_to_model"]=_dir+"model"
     params["path_to_word_to_ic"]=_dir+"word_to_ic.pkl"
     params["path_to_filtered_w2v"]=_dir+"filtered_w2v.pkl"
-    
     params["path_to_stopwords"]="stopwords"        
     params["data"] = "data.csv"
     params["logDir"] = "logs/"
@@ -188,16 +171,11 @@ if __name__ == "__main__":
     params["target"] = "ptotal"
     params["target_value"] = [u"差",u"中",u"好"]
     params["label_name"] = "noise"
-    
-    if options.action == "train":
-
-        # Initialize env
-        sc = SparkContext(appName="sa",conf=create_spark_conf())
-        init_engine()
-
-        # Train model
-        train(sc,
-              batch_size,
-              sequence_len, max_words, embedding_dim, training_split,params)
-        sc.stop()
-    
+    # Initialize env
+    sc = SparkContext(appName="sa",conf=create_spark_conf())
+    init_engine()
+    # Train model
+    train(sc,
+          batch_size,
+          sequence_len, max_words, embedding_dim, training_split,params)
+    sc.stop()

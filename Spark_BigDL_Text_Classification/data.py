@@ -107,21 +107,20 @@ def get_w2v(data):
     for key in model.wv.vocab:
         w2v[key]=model[key].tolist()
     w2v['##']=[0]*vec_len
-    return w2v
+    return w2v,all_cmts
 
 def noiseLabel(sample):
     if sample == "其他":
-        return 2
-    else:
         return 1
+    else:
+        return 0
 
-def getTrain_(data,label_name):
+def getTrain_(data,label_name,trainNum):
     data.loc[:,"noise"] = list(map(lambda x: noiseLabel(x),data["act"])) 
     # Balance the data
     train = _imbalance(data,label_name)
     
     # Test
-    trainNum = 4000
     train = train.sample(trainNum)
     
     res=train.loc[:,['cmt',label_name]]
@@ -137,13 +136,14 @@ def _imbalance(data,label_name):
     """
     subsample_num = 19000
     subsample_min = 100
-    df1 = data[data[label_name] == 2].sample(subsample_num)
+    df1 = data[data[label_name] == 1].sample(subsample_num)
     
-    num0 = data[data[label_name] == 1].shape[0]
+    data_0 = data[data[label_name] == 0]
+    num0 = data_0.shape[0]
     add_0_num = subsample_num - num0
-    df0 = data[data[label_name] == 1]
+    df0 = data_0
     for i in range(int(add_0_num/subsample_min)):
-        _df0 = data[data[label_name] == 1].sample(subsample_min)
+        _df0 = data_0.sample(subsample_min)
         df0 = pd.concat([df0,_df0])
     
     data = pd.concat([df0,df1])
