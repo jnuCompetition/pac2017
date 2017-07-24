@@ -43,13 +43,13 @@ def mergeData():
 def c2e(labels,x):
 	return labels.index(x)+1
 
-def getTrain(data,pname,label_name,label_value):
+def getTrain(data,pname,label_name,label_value,subsample_num):
     train = data[data.ix[:,'act']==pname]
     train = train.reset_index(drop=True)
     train.loc[:,label_name] = list(map(lambda x:c2e(label_value,x),train[label_name]))
     
     # Balance the data
-    train = imbalance(train,label_name)
+    train = imbalance(train,label_name,subsample_num)
     
     res=train.loc[:,['cmt',label_name]]
     _res = np.array(res)
@@ -73,8 +73,7 @@ def getStopWords(stopwords_path):
 def filterCmt(cutwords,stopwords):
 	return [word for word in cutwords if word not in stopwords]
 
-def imbalance(data,label_name):
-    subsample_num = 1000
+def imbalance(data,label_name,subsample_num):
     subsample_min = 5
     df1 = data[data[label_name] == 2].sample(subsample_num)
     
