@@ -175,8 +175,8 @@ if __name__ == "__main__":
     params["data"] = "data.csv"
     params["logDir"] = "logs/"
     params["act"] = "ApplePay"
-    params["subsample_num"] = 1000
-    params["target"] = "ptotal"
+    params["subsample_num"] = 400
+    params["target"] = "fav"
     params["target_value"] = [u"差",u"中",u"好"]
     params["label_name"] = "noise"
     
